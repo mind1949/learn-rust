@@ -1,6 +1,5 @@
 use clap::{App, Arg};
 use std::error::Error;
-use std::fmt::format;
 use std::{
     fs::File,
     io::{self, BufRead, BufReader},
