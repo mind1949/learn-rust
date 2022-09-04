@@ -1,0 +1,10 @@
+[workspace]
+
+members = [
+    "catr",
+    "echor",
+    "headr",
+    "hello",
+    "uniqr",
+    "wcr",
+]
