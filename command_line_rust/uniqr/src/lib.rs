@@ -77,7 +77,6 @@ pub fn run(config: Config) -> MyResult<()> {
         Ok(())
     };
 
-    let mut previouse = "".to_string();
     let mut line = "".to_string();
     let bytes = file.read_line(&mut line)?;
     if bytes == 0 {
@@ -85,7 +84,7 @@ pub fn run(config: Config) -> MyResult<()> {
     }
     let mut count: u32 = 1;
     loop {
-        previouse = line.clone();
+        let previouse = line.clone();
         line.clear();
         let bytes = file.read_line(&mut line)?;
         if bytes == 0 {
