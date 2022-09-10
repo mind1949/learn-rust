@@ -7,4 +7,9 @@ members = [
     "hello",
     "uniqr",
     "wcr",
+    "findr"
+]
+
+exclude = [
+    "command-line-rust"
 ]
