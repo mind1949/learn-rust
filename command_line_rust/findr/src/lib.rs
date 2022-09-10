@@ -1,7 +1,18 @@
 use crate::EntryType::*;
 use clap::{App, Arg};
 use regex::Regex;
-use std::{error::Error, vec};
+use std::error::Error;
+use walkdir::{DirEntry, WalkDir};
+
+type MyResult<T> = Result<T, Box<dyn Error>>;
+
+#[derive(Debug, Eq, PartialEq)]
+enum EntryType {
+    Dir,
+    File,
+    Link,
+}
+
 #[derive(Debug)]
 pub struct Config {
     paths: Vec<String>,
@@ -9,136 +20,109 @@ pub struct Config {
     entry_types: Vec<EntryType>,
 }
 
-pub type MyResult<T> = Result<T, Box<dyn Error>>;
-
-#[derive(Debug)]
-enum EntryType {
-    Dir,
-    File,
-    Link,
-}
-
 pub fn get_args() -> MyResult<Config> {
     let matches = App::new("findr")
         .version("0.1.0")
-        .author("Jurassic lianjie1949@gimal.com")
+        .author("Jurassic lianjie1949@gmail.com")
         .about("Rust find")
         .arg(
-            Arg::with_name("path")
+            Arg::with_name("paths")
                 .value_name("PATH")
                 .help("Search paths")
                 .default_value(".")
                 .multiple(true),
         )
         .arg(
-            Arg::with_name("name")
+            Arg::with_name("names")
+                .value_name("NAME")
                 .short("n")
                 .long("name")
-                .value_name("NAME")
-                .help("NAME")
-                .default_value(".")
+                .help("Name")
                 .takes_value(true)
                 .multiple(true),
         )
         .arg(
-            Arg::with_name("type")
+            Arg::with_name("types")
+                .value_name("TYPE")
                 .short("t")
                 .long("type")
-                .value_name("TYPE")
                 .help("Entry type")
                 .possible_values(&["f", "d", "l"])
-                .takes_value(true)
-                .multiple(true),
+                .multiple(true)
+                .takes_value(true),
         )
         .get_matches();
 
     let names = matches
-        .values_of_lossy("name")
-        .map(|v| {
-            v.iter()
+        .values_of_lossy("names")
+        .map(|vals| {
+            vals.into_iter()
                 .map(|name| Regex::new(&name).map_err(|_| format!("Invalid --name \"{}\"", name)))
                 .collect::<Result<Vec<_>, _>>()
         })
         .transpose()?
         .unwrap_or_default();
+
+    // clap should disallow anything but "d," "f," or "l"
     let entry_types = matches
-        .values_of_lossy("type")
-        .map(|entry_types| {
-            entry_types
-                .iter()
-                .map(|entry_type| match entry_type.as_str() {
-                    "f" => File,
+        .values_of_lossy("types")
+        .map(|vals| {
+            vals.iter()
+                .map(|val| match val.as_str() {
                     "d" => Dir,
+                    "f" => File,
                     "l" => Link,
-                    _ => {
-                        unreachable!("Invalid type")
-                    }
+                    _ => unreachable!("Invalid type"),
                 })
-                .collect::<Vec<_>>()
+                .collect()
         })
         .unwrap_or_default();
+
     Ok(Config {
-        paths: matches.values_of_lossy("path").unwrap_or_default(),
+        paths: matches.values_of_lossy("paths").unwrap(),
         names,
         entry_types,
     })
 }
 
 pub fn run(config: Config) -> MyResult<()> {
-    let mut entry_types = config.entry_types;
-    if entry_types.len() == 0 {
-        entry_types = vec![Dir, File, Link]
-    }
+    let type_filter = |entry: &DirEntry| {
+        config.entry_types.is_empty()
+            || config
+                .entry_types
+                .iter()
+                .any(|entry_type| match entry_type {
+                    Link => entry.file_type().is_symlink(),
+                    Dir => entry.file_type().is_dir(),
+                    File => entry.file_type().is_file(),
+                })
+    };
 
-    let mut output: Vec<String> = Vec::new();
-    for path in config.paths {
-        let walker = walkdir::WalkDir::new(path).into_iter();
-        for entry in walker {
-            match entry {
-                Err(err) => eprintln!("{}", err),
-                Ok(entry) => {
-                    let metadata = entry.metadata()?;
-                    let mut has_type = false;
-                    for entry_type in entry_types.iter() {
-                        match entry_type {
-                            Dir => {
-                                if metadata.is_dir() {
-                                    has_type = true
-                                }
-                            }
-                            File => {
-                                if metadata.is_file() {
-                                    has_type = true;
-                                }
-                            }
-                            Link => {
-                                if metadata.is_symlink() {
-                                    has_type = true;
-                                }
-                            }
-                        }
-                    }
-                    if !has_type {
-                        continue;
-                    }
+    let name_filter = |entry: &DirEntry| {
+        config.names.is_empty()
+            || config
+                .names
+                .iter()
+                .any(|re| re.is_match(&entry.file_name().to_string_lossy()))
+    };
 
-                    for name in config.names.iter() {
-                        if let Some(filename) = entry.file_name().to_str() {
-                            if name.is_match(filename) {
-                                let path = entry.path().display().to_string();
-                                output.push(path);
-                            }
-                        } else {
-                            continue;
-                        }
-                    }
+    for path in &config.paths {
+        let entries = WalkDir::new(path)
+            .into_iter()
+            .filter_map(|e| match e {
+                Err(e) => {
+                    eprintln!("{}", e);
+                    None
                 }
-            }
-        }
+                Ok(entry) => Some(entry),
+            })
+            .filter(type_filter)
+            .filter(name_filter)
+            .map(|entry| entry.path().display().to_string())
+            .collect::<Vec<_>>();
+
+        println!("{}", entries.join("\n"));
     }
-    output.sort();
-    for path in output {
-        println!("{}", path)
-    }
+
     Ok(())
 }
