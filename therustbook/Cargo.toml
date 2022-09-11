@@ -2,4 +2,6 @@
 
 members = [
     "guessing_game",
+    "playground",
+    "functions",
 ]
