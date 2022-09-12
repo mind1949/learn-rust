@@ -3,6 +3,10 @@
 version = 3
 
 [[package]]
+name = "adder"
+version = "0.1.0"
+
+[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -35,10 +39,6 @@ name = "libc"
 version = "0.2.132"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8371e4e5341c3a96db127eb2465ac681ced4c433e01dd0e938adbef26ba93ba5"
-
-[[package]]
-name = "playground"
-version = "0.1.0"
 
 [[package]]
 name = "ppv-lite86"
