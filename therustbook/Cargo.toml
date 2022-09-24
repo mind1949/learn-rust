@@ -4,4 +4,5 @@ members = [
     "guessing_game",
     "functions",
     "adder",
+    "hello",
 ]
